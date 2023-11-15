@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from django.shortcuts import render
 from .models import *
 from .serializers import *
@@ -9,6 +10,8 @@ from rest_framework.response import Response
 from rest_framework import status,filters,generics,mixins
 from rest_framework.permissions import IsAuthenticated,IsAdminUser
 from rest_framework.authentication import TokenAuthentication
+import pandas as pd
+from rest_framework.pagination import PageNumberPagination
 
 @api_view(["GET"])
 def sample(request):
@@ -29,10 +32,17 @@ class StoreRetrieveUpdateDestroy(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = StoreModelSerializer
 
 
+
+class CustomPaginationStyleOne(PageNumberPagination):
+    page_size = 5
+class CustomPaginationStyleOne(PageNumberPagination):
+    page_size_query_param = 'limit'
+
 class FoodListCreate(generics.ListCreateAPIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = FoodModelSerializer
+    pagination_class = CustomPaginationStyleOne
 
     def get_queryset(self):
         user_stores = StoreModel.objects.filter(user=self.request.user)
@@ -80,6 +90,16 @@ def offer_Notification(request):
             return Response({"message": "Offer notifications sent successfully."}, status=200)
     
     return Response({"message": "No stores with offers found."}, status=200)
+
+from api.task import send_offer_notification
+
+@api_view(["GET"])
+def offer_Notification(request):
+    # Trigger the Celery task
+    result = send_offer_notification.delay()
+
+    return Response({"message": "Task scheduled successfully.", "task_id": result.id}, status=200)
+
 
 @api_view(["PATCH"])
 def New_offer(request,pk):
@@ -149,12 +169,31 @@ class DineIn_Book(APIView):
 
 
 
+def export_store_data_to_excel(file_path='store_data.xlsx'):
+    stores = StoreModel.objects.all()
+
+    data = {
+        'Name': [store.name for store in stores],
+        'Address': [store.address for store in stores],
+        'Location': [store.location for store in stores],
+        'Is Open': [store.isOpen for store in stores],
+        'Has Offer': [store.hasOffer for store in stores],
+        'User': [store.user.username for store in stores],
+    }
+
+    df = pd.DataFrame(data)
+    df.to_excel(file_path, index=False, engine='openpyxl')
+    print(f'Data exported to {file_path}')
 
 
+def export_store_data(request):
+    file_path = 'store_data.xlsx'
+    export_store_data_to_excel(file_path)
 
+    with open(file_path, 'rb') as excel_file:
+        response = HttpResponse(excel_file.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename={file_path}'
 
-
-
-
+    return response
 
 

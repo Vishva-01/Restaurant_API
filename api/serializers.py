@@ -16,3 +16,5 @@ class DineInModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = DineInModel
         fields = "__all__"
+
+

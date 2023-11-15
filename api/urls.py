@@ -15,6 +15,7 @@ urlpatterns = [
     path("offer/<int:pk>",New_offer),
 
     path('book/<int:pk>/<int:select_time>/<int:table_count>',DineIn_Book.as_view()),
-
+    
+    path('exportData/', export_store_data),
 
 ]
